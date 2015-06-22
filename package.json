@@ -1,0 +1,44 @@
+{
+  "name": "hearhere",
+  "version": "0.0.1",
+  "description": "HearHere my fellow peer",
+  "keywords": [
+    "peer",
+    "streaming audio",
+    "radio art",
+    "webRTC",
+    "webaudio"
+  ],
+  "dependencies": {
+    "getusermedia": "*"
+  },
+  "devDependencies": {
+    "browserify": "^6.2.0",
+    "uglify-js": "~2.4.15",
+    "watchify": "^2.1.1",
+    "coffeeify": "*",
+    "less": "^2.5.1",
+    "nodemon": "^1.3.7"
+  },
+  "scripts": {
+    "mkdirs": "mkdir -p js css",
+    "watch-less": "nodemon --watch less/*.less --ext less --exec 'npm run build-less'",
+    "build-less": "lessc less/style.less css/bundle.css",
+    "watch_z": "watchify -o js/bundle_z.js -v -d src/zentrum.coffee",
+    "build_z": "browserify src/zentrum.coffee | uglifyjs -cm > js/bundle_z.min.js",
+    "watch_u": "watchify -o js/bundle_u.js -v -d src/user.coffee",
+    "build_u": "browserify src/user.coffee | uglifyjs -cm > js/bundle_u.min.js",
+    "watch": "npm run mkdirs & npm run watch_z & npm run watch_u & npm run watch-less",
+    "build": "npm run mkdirs;npm run build_z ; npm run build_u ; npm run build-less"
+  },
+  "author": "August Black",
+  "browserify": {
+    "extensions": [
+      ".coffee",
+      ".cjsx"
+    ],
+    "transform": [
+      "coffeeify"
+    ]
+  }
+}
