@@ -6,3 +6,6 @@
 
 The development of *hearhere* has been generously sponsored by https://wavefarm.org/
 
+
+<img src="https://wavefarm.org/images/wf-logo.png" align="left" height="100" width="100" >
+
