@@ -1,5 +1,11 @@
 # just use one of these
-a_ctx = new (window.AudioContext || window.webkitAudioContext)()
+a_ctx = new (
+  window.AudioContext ||
+  window.webkitAudioContext ||
+  window.mozAudioContext ||
+  window.oAudioContext ||
+  window.msAudioContext
+)
 
 create_element = (name, attrs)->
   el = document.createElement name
@@ -68,9 +74,12 @@ class ClientComponent
     return this
 
   destroy_it : ()->
+    @gain.gain.value = 0 if @gain?.gain?
+    @src.disconnect(0) if @src?
+    @gain.disconnect(0) if @gain?
     @m_conn.close() if @m_conn?.open
     @d_conn.close() if @d_conn?.open
-    document.body.removeChild @ui
+    document.body.removeChild @ui if @ui?
     return
 
   on_data_open: ()-> @log "data connect"

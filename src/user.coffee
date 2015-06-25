@@ -1,4 +1,20 @@
 gum =require 'getusermedia'
+a_ctx = new (
+  window.AudioContext ||
+  window.webkitAudioContext ||
+  window.mozAudioContext ||
+  window.oAudioContext ||
+  window.msAudioContext
+)
+
+log = (msg)->
+  console.log msg
+  status_el.innerHTML += "#{msg}</br>" if status_el?
+log_error = (msg)->
+  console.log msg
+  alert msg
+  status_el.innerHTML += "<div class=\"error\">#{msg}</div>" if status_el?
+
 
 create_element = (name, attrs)->
   el = document.createElement name
@@ -6,53 +22,67 @@ create_element = (name, attrs)->
     el.setAttribute k,v
   return el
 
-canvas = document.getElementById('leiwand')
+delete_client = (k,v)->
+  document.body.removeChild v.el
+  delete other_clients[k]
+
+me ={}
+me.el = document.getElementById('me')
+status_el = document.getElementById('status')
+
+set_transform = (el, transform)->
+  el.style.webkitTransform = transform
+  el.style.MozTransform = transform
+  el.style.msTransform = transform
+  el.style.OTransform = transform
+  el.style.transform = transform
+
+set_class = (el, audio)->
+  return el.style.backgroundColor = "red" if audio is "off"
+  return el.style.backgroundColor = "green" if audio is "on"
+  return el.style.backgroundColor = "orange" if audio is "ready"
+  return el.style.backgroundColor = "grey"
+
+center =
+  x:0
+  y:0
+
+window.onresize = on_window_resize = (e)->
+  w = window.innerWidth
+  h = window.innerHeight
+  center=
+    x: w / 2
+    y: h / 2
+  me.radius = Math.min w/5, h/5
+  scale= me.radius/100
+  transform = "translate(#{center.x}px, #{center.y}px) scale(#{scale}) "
+  set_transform me.el, transform
+  draw()
+
+create_el = (k,v)->
+  el =document.createElement "div"
+  el.id = k
+  el.className = "circle"
+  set_class el, "trouble"
+  document.body.appendChild el
+  return el
 
 
-my_col="grey"
-draw_circle = (ctx, center, r, col)->
-  ctx.beginPath()
-  ctx.arc center.x, center.y, r, 0, 2 * Math.PI, false
-  ctx.fillStyle = col
-  ctx.fill()
-  ctx.lineWidth = 1
-  ctx.strokeStyle = '#222222'
-  ctx.stroke()
+other_clients ={}
 
-draw = (data)->
-  ctx = canvas.getContext '2d'
-  ctx.canvas.width  = window.innerWidth
-  ctx.canvas.height = window.innerHeight
-  ctx.clearRect(0, 0, canvas.width, canvas.height)
-  centerX = canvas.width / 2
-  centerY = canvas.height / 2
-  r_w = canvas.width/ 5
-  r_h = canvas.height/ 5
-  r = Math.min r_w, r_h
-  #console.log "drawing", peer_id,g[peer_id] if g
-  #console.log "m_conn", m_conn.open if m_conn?
-  ctx.beginPath()
-  ctx.arc centerX, centerY, r, 0, 2 * Math.PI, false
-  ctx.fillStyle = my_col
-  ctx.fill()
-  ctx.lineWidth = 5
-  ctx.strokeStyle = '#222222'
-  ctx.stroke()
-  if data?
-    arr = (v for k,v of data when k isnt peer_id)
-    theta_inc = 2*Math.PI / arr.length
-    for a,i in arr
-      theta = i* theta_inc
-      center =
-        x : centerX + (r * Math.cos theta)
-        y : centerY + (r * Math.sin theta)
-      draw_circle ctx,center,r/5, (if a.audio is "on" then "green" else "red" )
+draw = ()->
+  len = Object.keys(other_clients).length
+  inc = 360 / len
+  i=0
+  set_class me.el, me.audio
+  for k,v of other_clients
+    theta = inc*i++
+    v.el = create_el(k,v) unless v.el?
+    scale= me.radius/100 *0.4
+    transform =  "translate(#{center.x}px, #{center.y}px)  rotate(#{theta}deg)  translateX(#{me.radius}px) scale(#{scale})"
+    set_transform v.el, transform
+    set_class v.el, v.audio
     
-    
-    
-    
-
-draw()
 
 peer = new Peer '',
   key: '2rm8if3cntz3q5mi'
@@ -62,9 +92,9 @@ peer = new Peer '',
 
 
 peer_reconnect = ()->
-  console.log "peer disconnected.."
+  log "peer disconnected.."
   setTimeout ()->
-    console.log "reconnecting to peer.."
+    log "reconnecting to peer.."
     peer.reconnect()
   , 1000
 
@@ -78,16 +108,41 @@ peer_id = null
 
 peer.on 'open', (id)->
   peer_id =id
-  console.log "connected as #{peer_id}"
+  log "connected as #{peer_id}"
   data_connect()
   gum {video:false,audio:true}, (err, media_stream)->
-    return console.error err if err
-    m_stream = media_stream
+    return log_error err.message if err
+    if a_ctx?.createMediaStreamSource?
+      log "setting up dynamic range compression"
+      stream_src = a_ctx.createMediaStreamSource(media_stream)
+
+      compressor = a_ctx.createDynamicsCompressor()
+      compressor.threshold.value = -50
+      compressor.knee.value = 40
+      compressor.ratio.value = 12
+      compressor.reduction.value = -20
+      compressor.attack.value = 0
+      compressor.release.value = 0.25
+
+      dest = a_ctx.createMediaStreamDestination()
+
+      stream_src.connect compressor
+      compressor.connect dest
+
+      media_stream.addTrack(dest.stream.getAudioTracks()[0])
+      media_stream.removeTrack(media_stream.getAudioTracks()[0])
+
+      m_stream = dest.stream
+
+    else
+      log "no dynamic range compression"
+      m_stream = media_stream
+
     media_connect()
 
 peer.on 'close', ()-> peer_reconnect()
 peer.on 'disconnected', ()-> peer_reconnect()
-peer.on 'connection', (conn)-> console.log "got a data connection"
+peer.on 'connection', (conn)-> log "got a data connection"
 
 data_reconnect = ()->
   d_conn.close() if d_conn?
@@ -98,17 +153,23 @@ data_reconnect = ()->
 
 data_connect = ()->
   d_conn  = peer.connect 'zentrum'
-  d_conn.on 'error', (err)-> console.error err.message
-  d_conn.on 'close', ()-> my_col="grey"; draw(); console.log "closed data"
+  d_conn.on 'error', (err)-> log_error err.message
+  d_conn.on 'close', ()-> me.el.backgroundColor="grey"; draw(); log "closed data"
   d_conn.on 'open', ()-> draw()
   d_conn.on 'data', (data)->
     d_conn.send now: Date.now()
-    if m_conn?.open and  data?[peer_id]?.m_conn
-      if data?[peer_id]?.audio is "on"
-        my_col = "#00ff00"
+    for k,v of other_clients
+     delete_client k,v unless data[k]
+    for k,v of data
+      if k is peer_id
+        me.audio = v.audio
+        me.m_conn = v.m_conn || m_conn?.open
       else
-        my_col ="red"
-    draw(data)
+        other_clients[k] = {} unless other_clients[k]?
+        other_clients[k].el = create_el(k,v) unless other_clients[k]?.el
+        other_clients[k].audio = v.audio
+        other_clients[k].m_conn = v.m_conn
+    draw()
 
 
 media_reconnect = ()->
@@ -119,17 +180,21 @@ media_reconnect = ()->
   , 1000
 
 media_connect = ()->
-  console.log "doing media connect"
+  log "doing media connect"
   if m_stream
     m_conn = peer.call 'zentrum', m_stream
-    console.log "media", m_stream
-    m_conn.on 'open', ()->  console.log "sending audio"
-    m_conn.on 'close', ()-> console.log "audio closed"
-    m_conn.on 'error', (err)-> console.error err.message
+    log "media", m_stream
+    m_conn.on 'open', ()->  log "sending audio"
+    m_conn.on 'close', ()-> log "audio closed"
+    m_conn.on 'error', (err)-> log_error err.message
 
 setInterval ()->
   data_reconnect() unless d_conn?.open
   media_reconnect() unless m_conn?.open
-  my_col = "grey" unless d_conn?.open and m_conn?.open
+  me.el.backgroundColor = "grey" unless d_conn?.open and m_conn?.open
   draw()
 , 15000
+
+
+
+on_window_resize()

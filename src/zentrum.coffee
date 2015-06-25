@@ -47,6 +47,7 @@ peer.on 'connection', (conn)->
 
 peer.on 'call', (conn)->
   g[conn.peer] = new Client conn.peer unless g[conn.peer]?
+  console.log conn
   c = g[conn.peer]
   c.add_media_conn conn
   conn.answer() # media_stream
@@ -82,9 +83,8 @@ setInterval( ()->
       all[k] =
         audio: "off"
         m_conn: if a?.m_conn? then a.m_conn.open else false
-      #a.set_gain 0.0
   for k,a of g
-    a.d_conn.send all
+    a.d_conn.send all if a.d_conn?.open
   t++
 , 2000)
 

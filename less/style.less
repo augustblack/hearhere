@@ -1,6 +1,41 @@
 @range_width: 150px;
 @thumb_width: 25px;
 
+.circle {
+  width:100px;
+  height:100px;
+  left:-50px;
+  top:-50px;
+  position:absolute;
+  border: 2px solid #333333;
+  border-radius:50px;
+  background-color: grey;
+  transition-property: transform, background-color;
+  transition-duration: 1s, 2s;
+  transition-timing-function: ease,ease;
+}
+
+#status {
+  background-color:grey;
+  position: absolute;
+  left:20%;
+  top:0%;
+  width:60%;
+  height:2%;
+  overflow: scroll;
+  transition:height 1s ease;
+}
+
+#status:hover {
+  height:20%;
+}
+.error {
+  background-color:red;
+}
+
+
+
+/////  - for the server
 .ui {
   position:relative;
   display:inline-block;
