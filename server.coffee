@@ -76,5 +76,5 @@ clients.on 'connection', (c)->
     candidate.peer_id = c.id
     master.emit "ice" , candidate
 
-
-srv.listen 3000, ()-> console.log('listening on *:3000')
+port=80
+srv.listen port, ()-> console.log "listening on *:#{port}"

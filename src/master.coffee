@@ -10,8 +10,8 @@ a_ctx = new (
 )
 
 
-socket =io.connect 'http://10.0.1.71:3000/master'
-#socket =io.connect 'http://192.168.0.61:3000/master'
+#socket =io.connect 'http://10.0.1.71:3000/master'
+socket =io.connect 'http://listenhere.info/master'
 
 configuration =
   iceServers: [url: 'stun:stun.l.google.com:19302']
@@ -41,6 +41,20 @@ trigger_adsr = (audio_el, dur)->
       requestAnimationFrame draw if diff < dur
   requestAnimationFrame draw
 
+trigger_adsr_to = (audio_el, dur)->
+  return console.error "missing params to trigger_adsr" unless audio_el and dur
+  start = Date.now()
+  set_volume = (t)->
+    v = Math.sin( (Math.PI *t)/(dur-1))
+    audio_el.volume = Math.max 0, v
+  draw = ()->
+      now = Date.now()
+      diff = now - start
+      set_volume diff
+      requestAnimationFrame draw if diff < dur
+  setTimeout draw, 100
+
+
 setup_audio_tag = (peer_id, media_stream)->
   console.log "about to set up audio"
   return console.error "missing params in setup_audio" unless media_stream and  peer_id  and clients?[peer_id]?
@@ -56,7 +70,7 @@ setup_audio_tag = (peer_id, media_stream)->
   audio_el.id = peer_id
   audio_el.controls =true
   document.body.appendChild audio_el
-  #audio_el.volume=0
+  audio_el.volume=0
   audio_el.play()
   clients[peer_id].audio_el = audio_el
   #clients[peer_id].media_stream = media_stream
@@ -164,9 +178,26 @@ socket.on 'answer', (answer)->
   console.log "got answer", answer
   clients[peer_id].pc.handleAnswer answer
 
+mute=false
+mute_el =document.getElementById "mute"
+mute_el.addEventListener "click", (evt)->
+  if mute_el.innerHTML is "UN-MUTE"
+    mute=false
+    mute_el.innerHTML = "MUTE"
+  else
+    mute=true
+    mute_el.innerHTML = "UN-MUTE"
 
 t=0
 setInterval( ()->
+  if mute
+    all={}
+    for k,a of clients
+      all[k] =
+        audio: "off"
+      a.audio_el.volume =0 if a.audio_el
+    socket.emit "pulse", all
+    return
   now = Date.now()
   len = Math.max Object.keys(clients).length,2
   idx=t%len
@@ -177,12 +208,12 @@ setInterval( ()->
       if i++ is idx
         all[k] =
           audio: "on"
-        trigger_adsr(a.audio_el, 2000)
+        trigger_adsr_to a.audio_el, 4000
       else
         all[k] =
           audio: "off"
   for k,a of clients
     socket.emit "pulse", all
   t++
-, 1500)
+, 2000)
 

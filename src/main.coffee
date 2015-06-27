@@ -35,8 +35,8 @@ else
 
 return  unless rtc_support.support
 
-socket =io.connect 'http://10.0.1.71:3000/clients' #, {'force new connection': true}
-#socket =io.connect 'http://192.168.0.61:3000/clients'
+#socket =io.connect 'http://10.0.1.71:3000/clients' #, {'force new connection': true}
+socket =io.connect 'http://listenhere.info/clients'
 
 configuration =
   iceServers: [url: 'stun:stun.l.google.com:19302']
