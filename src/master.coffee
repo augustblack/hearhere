@@ -1,5 +1,6 @@
 PeerConnection = require 'rtcpeerconnection'
 io = require 'socket.io/node_modules/socket.io-client'
+
 a_ctx = new (
   window.AudioContext ||
   window.webkitAudioContext ||
@@ -40,18 +41,15 @@ trigger_adsr = (audio_el, dur)->
       requestAnimationFrame draw if diff < dur
   requestAnimationFrame draw
 
-setup_audio = (peer_id, media_stream)->
+setup_audio_tag = (peer_id, media_stream)->
   console.log "about to set up audio"
   return console.error "missing params in setup_audio" unless media_stream and  peer_id  and clients?[peer_id]?
   audio_el = document.createElement "audio"
   if audio_el.srcObject?
-    console.log "got a normal src"
     audio_el.srcObject = media_stream
   else if audio_el.mozSrcObject?
-    console.log "got a moz src"
     audio_el.mozSrcObject = media_stream
   else if URL?.createObjectURL?
-    console.log "got a URL src"
     audio_el.src = URL.createObjectURL media_stream
   else
     return console.error "Couldn't add the audio component"
@@ -63,12 +61,35 @@ setup_audio = (peer_id, media_stream)->
   clients[peer_id].audio_el = audio_el
   #clients[peer_id].media_stream = media_stream
 
+create_element = (name, attrs)->
+  el = document.createElement name
+  for k,v of attrs
+    el.setAttribute k,v
+  return el
+
+
+setup_audio_webaudio = (peer_id, media_stream)->
+  return console.error "missing params in setup_audio" unless media_stream and  peer_id  and clients?[peer_id]?
+  src = a_ctx.createMediaStreamSource media_stream
+  gain = a_ctx.createGain()
+  src.connect(gain)
+  gain.connect(a_ctx.destination)
+  opts=
+    type: "range"
+    min:0
+    max:1.5
+    step:0.1
+  vol_el = create_element "input", opts
+  document.body.appendChild vol_el
+  #vol_el.addEventListener "input", @on_input_change.bind this
+  clients[peer_id].audio_el = vol_el
 
 socket.on "eskannnureinegeben", ()->
   alert "sorry, there can only be one master"
 
 socket.on "connect", ()->
   console.log "connected"
+  socket.emit "readyforpeers"
 
 socket.on "disconnect", ()->
   alert "disconnected"
@@ -85,25 +106,27 @@ socket.on "reconnect_error", (err)->
 
 socket.on 'newpeer', (peer_id)->
   pc = new PeerConnection(configuration)
+  # we may NEED to create a data channel for FF
+  pc.createDataChannel peer_id
   clients[peer_id] =
     pc:pc
 
   # send any ice candidates to the other peer
   pc.on "ice", (candidate)->
-    console.log "pc got ice from #{peer_id}", pc
+    console.log "pc got ice from #{peer_id}"
     socket.emit "ice", candidate
 
   pc.on 'answer', (answer)->
-    console.log "#pc got answer from #{peer_id}", answer
+    console.log "#pc got answer from #{peer_id}"
     pc.handleAnswer answer
 
   # remote stream added
   pc.on 'addStream', (evt)->
     console.log "got addStream event from #{peer_id}"
-    setup_audio peer_id, evt.stream
+    setup_audio_tag peer_id, evt.stream
 
   pc.on 'removeStream', (evt)->
-    console.log "got removeStream event from #{peer_id}", evt
+    console.log "got removeStream event from #{peer_id}"
     remove_audio peer_id
 
   pc.on 'close', ()->
@@ -114,7 +137,7 @@ socket.on 'newpeer', (peer_id)->
   #pc.on 'iceConnectionStateChange', ()-> console.log "iceConnectionStateChange", arguments
   #pc.on 'negotiationNeeded', ()-> console.log "negotiationNeeded", arguments
   #pc.on 'signalingStateChange', ()-> console.log "signalingStateChange", arguments
-
+  #pc.addStream media_stream
   pc.offer
     mandatory:
       OfferToReceiveAudio: true
@@ -132,14 +155,12 @@ socket.on 'disconnect peer', (peer_id)->
 socket.on 'ice', (candidate)->
   return console.log "got candidate but can't process" unless candidate?.peer_id and clients[candidate.peer_id]?
   peer_id = candidate.peer_id
-  delete candidate.peer_id
   console.log "socket got ice", candidate
   clients[peer_id].pc.processIce candidate
 
 socket.on 'answer', (answer)->
   return console.log "got answer but can't pick up" unless answer?.peer_id and clients[answer.peer_id]?
   peer_id = answer.peer_id
-  delete answer.peer_id
   console.log "got answer", answer
   clients[peer_id].pc.handleAnswer answer
 
@@ -156,7 +177,7 @@ setInterval( ()->
       if i++ is idx
         all[k] =
           audio: "on"
-        #trigger_adsr(a.audio_el, 2000)
+        trigger_adsr(a.audio_el, 2000)
       else
         all[k] =
           audio: "off"

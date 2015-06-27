@@ -11,15 +11,6 @@ io = require('socket.io')(srv)
 
 
 app.use(express.static(process.cwd() + '/public'))
-###
-app.get '/', (req, res)->
-  res.sendFile "#{__dirname}/public/index.html"
-app.get '/js/bundle.js', (req,res)->
-  res.sendFile "#{__dirname}/public/js/bundle.js"
-app.get '/js/master.js', (req,res)->
-  res.sendFile "#{__dirname}/public/js/master.js"
-
-###
 
 app.get '/master', (req, res)->
   res.sendFile "#{__dirname}/public/master.html"
@@ -46,6 +37,9 @@ master.on 'connection', (m)->
     console.error err.msg
     clients.emit "master error", "wavefarm central is having difficulties"
 
+  m.on 'readyforpeers', ()->
+    clients.emit('readyforpeers' )
+
   m.on 'offer', (offer)->
     console.log "got newpeer offer", offer.peer_id
     clients.to(offer.peer_id).emit('offer', offer)
@@ -54,7 +48,7 @@ master.on 'connection', (m)->
     clients.emit('pulse', payload)
 
   m.on 'ice', (candidate)->
-    console.log "master got ice"
+    #console.log "master got ice"
     clients.emit 'ice', candidate
 
 clients.on 'connection', (c)->
@@ -64,6 +58,9 @@ clients.on 'connection', (c)->
   c.on 'error',  (err)->
     console.error err.msg
 
+  c.on 'announce',  (err)->
+    console.log 're-announcing', c.id
+    master.emit "newpeer", c.id
 
   c.on 'disconnect', ()->
     console.log "disconnect", c.id
@@ -75,7 +72,7 @@ clients.on 'connection', (c)->
     master.emit "answer", answer
 
   c.on 'ice', (candidate)->
-    console.log "client got ice"
+    #console.log "client got ice"
     candidate.peer_id = c.id
     master.emit "ice" , candidate
 

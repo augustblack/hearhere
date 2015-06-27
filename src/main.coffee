@@ -1,16 +1,51 @@
 PeerConnection = require 'rtcpeerconnection'
 io = require 'socket.io/node_modules/socket.io-client'
 gum =require 'getusermedia'
+rtc_support = require 'webrtcsupport'
+
+
+me ={}
+me.el = document.getElementById('me')
+nogo_el = document.getElementById('nogo')
+load_el = document.getElementById('loading')
+status_el = document.getElementById('status')
+play_el = document.getElementById('playradio')
+status_el.style.height ="0px"
+
+if rtc_support.support and rtc_support.supportGetUserMedia
+  nogo_el.style.display = "none"
+  load_el.style.display = "none"
+  me.el.style.display = "block"
+  status_el.style.display = "block"
+  play_el.addEventListener "click", (evt)->
+    warn ="Please be aware that:\n\n"
+    warn +="\t1)playing the audio could cause acoustic feedback with your microphone. "
+    warn += "Put on headphones on if that isn't your intention.\n"
+    warn += "\t2) if you are already listening to the FM station (online or on air) then there is no reason to continue here"
+    if confirm warn
+      radio_el = document.getElementById('radio')
+      play_el.style.display = "none"
+      play_el.style.visibility= "hidden"
+      radio_el.style.display="block"
+      radio_el.style.padding="10px"
+      radio_el.play() if radio_el
+else
+  nogo_el.style.display = "block"
+
+
+return  unless rtc_support.support
 
 socket =io.connect 'http://10.0.1.71:3000/clients' #, {'force new connection': true}
 #socket =io.connect 'http://192.168.0.61:3000/clients'
 
 configuration =
   iceServers: [url: 'stun:stun.l.google.com:19302']
+  #iceServers: [ url: "stun:stun.services.mozilla.com"]
 
 
 
 mic_stream=null
+mic_stream_src=null
 pc=null
 
 socket.on "connect", ()->
@@ -20,10 +55,10 @@ socket.on "connect_error", (err)->
   console.log "connect err: #{err?.message}"
 
 socket.on "error", (err)->
-  alert "general err: #{err?.message}"
+  alert "general err: #{err?.message}."
 
 socket.on "disconnect", ()->
-  alert "disconnected"
+  console.log "disconnected.  Please stand by."
 
 socket.on "reconnect", ()->
   console.log "reconnected"
@@ -43,6 +78,15 @@ socket.on "ice", (candidate)->
   #pc.processIce candidate
   all_candidates.push candidate
 
+socket.on 'master error', (data)->
+  console.log "the central hub is having trouble. Please reload this page if you experience difficulties"
+
+socket.on 'master disconnect', (data)->
+  console.log "the central hub has disconnected. Please reload this page."
+
+socket.on 'readyforpeers', ()->
+  socket.emit "announce"
+
 socket.on 'pulse', (data)->
   for k,v of other_clients
    delete_client k,v unless data[k]
@@ -57,52 +101,59 @@ socket.on 'pulse', (data)->
   draw()
 
 
+# get a local stream, show it in a self-view and add it to be sent
+# I read some reports that you must send video
+gum {video:false,audio:true}, (err, media_stream)->
+  return console.log "gum err #{err.message}" if err
+  # for FF, you MUST keep a copy of the original stream that comes from
+  # gUM in global scope. see: https://support.mozilla.org/en-US/questions/984179
+  mic_stream_src = media_stream
+  mic_stream = setup_mic_stream media_stream
+  socket.emit "announce"
+
+
 socket.on 'offer', (offer)->
   console.log "socket got offer", offer
+  return unless mic_stream
+  pc.close() if pc
   pc = new PeerConnection(configuration)
 
-  mic_stream.stop() if mic_stream
-  pc.removeStream mic_stream if mic_stream
-  mic_stream =null
-  _candidate=null
+  #mic_stream.stop() if mic_stream
+  #pc.removeStream mic_stream if mic_stream
   all_candidates = []
-  # get a local stream, show it in a self-view and add it to be sent
-  gum {video:false,audio:true}, (err, media_stream)->
-    return console.log "gum err #{err.message}" if err
-    mic_stream = setup_mic_stream media_stream
+  #pc.createDataChannel "data"
+  pc.addStream mic_stream
 
-    pc.addStream mic_stream
+  pc.handleOffer offer, (err)->
+      return console.log "error on offer #{err.message}" if err
+      pc.answerBroadcastOnly (err, answer)->
+        return console.log "answerBroadcastOnly err #{err.message}" if err
+        console.log "created answer", answer
+        socket.emit 'answer', answer
 
-    pc.handleOffer offer, (err)->
-        return console.log "error on offer #{err.message}" if err
-        pc.answerBroadcastOnly (err, answer)->
-          return console.log "answerBroadcastOnly err #{err.message}" if err
-          console.log "created answer", answer
-          socket.emit 'answer', answer
+  # send any ice candidates to the other peer
+  pc.on "ice", (candidate)->
+    console.log "pc got ice", candidate
+    socket.emit 'ice', candidate
 
-    # send any ice candidates to the other peer
-    pc.on "ice", (candidate)->
-      console.log "pc got ice", candidate
-      socket.emit 'ice', candidate
+  pc.on "endOfCandidates", ()->
+    for c in all_candidates
+      pc.processIce c
+    console.log "pc got the end of all candidates"
 
-    pc.on "endOfCandidates", ()->
-      for c in all_candidates
-        pc.processIce c
-      console.log "pc got the end of all candidates"
+  pc.on 'answer', ( answer )->
+    console.log "pc got answer", answer
+    pc.handleAnswer answer
 
-    pc.on 'answer', ( answer )->
-      console.log "pc got answer", answer
-      pc.handleAnswer answer
-
-    # remote stream removed
-    pc.on 'removeStream', (event)-> console.log "removed stream", event
-    #pc.on 'addChannel', ()-> console.log "addChannel"
-    #pc.on 'iceConnectionStateChange', ()-> console.log "iceConnectionStateChange", arguments
-    #pc.on 'negotiationNeeded', ()-> console.log "negotiationNeeded", arguments
-    #pc.on 'signalingStateChange', ()-> console.log "signalingStateChange", argumenTs
-    # on peer connection close
-    pc.on 'close', ()->
-      console.log "rtcpeer closed"
+  # remote stream removed
+  pc.on 'removeStream', (event)-> console.log "removed stream", event
+  #pc.on 'addChannel', ()-> console.log "addChannel"
+  #pc.on 'iceConnectionStateChange', ()-> console.log "iceConnectionStateChange", arguments
+  #pc.on 'negotiationNeeded', ()-> console.log "negotiationNeeded", arguments
+  #pc.on 'signalingStateChange', ()-> console.log "signalingStateChange", argumenTs
+  # on peer connection close
+  pc.on 'close', ()->
+    console.log "rtcpeer closed"
 
 
 a_ctx = new (
@@ -120,7 +171,11 @@ log = (msg)->
 log_error = (msg)->
   console.log msg
   status_el.innerHTML += "<div class=\"error\">#{msg}</div>" if status_el?
-
+###
+stream_src=null
+compressor=null
+dest=null
+###
 setup_mic_stream = (media_stream)->
   if a_ctx?.createMediaStreamSource?
     log "setting up dynamic range compression"
@@ -160,10 +215,6 @@ create_element = (name, attrs)->
 delete_client = (k,v)->
   document.body.removeChild v.el
   delete other_clients[k]
-
-me ={}
-me.el = document.getElementById('me')
-status_el = document.getElementById('status')
 
 set_transform = (el, transform)->
   el.style.webkitTransform = transform

@@ -1,3 +1,7 @@
+//@import 'icons.less';
+
+html, body                             {padding:0; margin:0; font:1em/1.4 Cambria, Georgia, sans-serif; color:#333; }
+
 .circle {
   width:100px;
   height:100px;
@@ -11,23 +15,37 @@
   transition-duration: 1s, 2s;
   transition-timing-function: ease,ease;
 }
+audio {
+  width:290px;
+  display:none;
+}
+#sidebar {
+  max-width: 300px;
+  padding:4px;
+}
 
 #status {
   background-color:grey;
-  position: absolute;
-  left:20%;
-  top:0%;
-  width:60%;
-  height:2%;
+  //position: absolute;
+  //left:20%;
+  //top:0%;
+  //width:60%;
+  height:0px;
+  max-height:80%;
   overflow: scroll;
   transition:height 1s ease;
-}
-
-#status:hover {
-  height:20%;
 }
 .error {
   background-color:red;
 }
 
-
+#playradio {
+  display: inline-block;
+  font-style:bold;
+  color:green;
+  background-color:grey;
+  cursor:pointer;
+  padding: 10px;
+  border: 1px solid black;
+  border-radius: 3px;
+}

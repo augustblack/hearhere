@@ -3,8 +3,27 @@
     <link rel="stylesheet" type="text/css" href="css/bundle.css" />
   </head>
   <body bgcolor="#222222">
-    <div id="status"></div>
-    <div id="me" class="circle"></div>
+    <div id="playradio">PLAY</div>
+    <audio id="radio" controls="controls" preload="none">
+      <source src="http://comm.free103point9.org:8000/wgxc.mp3" type="audio/mpeg">
+      Please update your browser to the latest version. 
+      This player should work in all current versions of Chrome, Firefox, Safari and IE.                              
+    </audio>
+
+    <div id="sidebar">
+      <div id="status" style="display:none;">
+      </div>
+    </div>
+    <div id="me" class="circle" style="display:none"></div>
+    <div id="loading" style="color:green">
+      <h1>Loading...</h1>  
+    </div>
+    <div id="nogo" style="color:red;display:none;">
+      <h1>Sorry, but your browser is unsupported.</h1>  
+      <h2>This app will only work in a recent (within 1-2 years) Chrome browser.</h2>
+      <h3>It will not work in Safari, Internet Explorer, or any browser on iOS. </h3>
+      <h3>iPhones and iPads cannot work even when using the Chrome browser.</h3>
+    </div>
   </body>
   <script src='/js/bundle.js'></script> 
 </html>
