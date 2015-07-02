@@ -18,10 +18,8 @@ if rtc_support.support and rtc_support.supportGetUserMedia
   me.el.style.display = "block"
   status_el.style.display = "block"
   play_el.addEventListener "click", (evt)->
-    warn ="Please be aware that:\n\n"
-    warn +="\t1)playing the audio could cause acoustic feedback with your microphone. "
-    warn += "Put on headphones on if that isn't your intention.\n"
-    warn += "\t2) if you are already listening to the FM station (online or on air) then there is no reason to continue here"
+    warn = "1) This is NOT the direct output from this system. It is the WGXC radio stream.\n"
+    warn += "2) You will only hear the output from the 'hearhere' system when we are live (sporadically on Sat. 27.June 4-6pm EST).\n"
     if confirm warn
       radio_el = document.getElementById('radio')
       play_el.style.display = "none"

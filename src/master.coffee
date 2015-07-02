@@ -188,6 +188,7 @@ mute_el.addEventListener "click", (evt)->
     mute=true
     mute_el.innerHTML = "UN-MUTE"
 
+clientcount_el =document.getElementById "clientcount"
 t=0
 setInterval( ()->
   if mute
@@ -200,6 +201,7 @@ setInterval( ()->
     return
   now = Date.now()
   len = Math.max Object.keys(clients).length,2
+  clientcount_el.innerHTML= "#{len} clients"
   idx=t%len
   i=0
   all={}
@@ -213,7 +215,9 @@ setInterval( ()->
         all[k] =
           audio: "off"
   for k,a of clients
+    remove_audio k if a.pc.signalingState is 'closed'
     socket.emit "pulse", all
+
   t++
 , 2000)
 
