@@ -4,7 +4,7 @@
 
 *Hearhere* uses new web technologies like WebRTC, WebAudioApi, and websockets to connect users into one radiophonic event.  The system consists of a single  server-in-a-webpage (master.html) and multiple clients (index.html). The signalling portion of the WebRTC compenent currently runs over socket.io and is managaed by server.coffee.  
 
-Recent desktop Firefox and Chrome browsers work spendidly.   On mobile, recent android webview (their default), chrome and firefox all function as expected/needed.  Nothing currently works on iphone unfortunately. 
+Recent desktop Firefox and Chrome browsers work splendidly.   On mobile, recent android webview (their default), chrome and firefox all function as expected/needed.  Nothing currently works on iphone unfortunately. 
 
 The development of *hearhere* has been generously sponsored by https://wavefarm.org/
 
